@@ -1,11 +1,35 @@
 import requests
 import datetime
 import os
+from flask import Flask, jsonify, request
+import copy
+from bson import ObjectId  # For ObjectId to work
+from bson.json_util import dumps, loads  # For ObjectId to work
+import socket
+import uuid
+import json
+
+S = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+S.connect(('8.8.8.8', 80))
+
+app = Flask(__name__)
+
 API = "https://pomber.github.io/covid19/timeseries.json"
 Cases = []
 CasesResponse = requests.get(API)
 CasesPercentage = []
 AproxCases = 0
+
+
+class Res:
+    def SET_Data(self, data):
+        self.Data = data
+
+    def SET_Info(self, info):
+        self.Info = info
+
+    def ToJSON(self):
+        return dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 def cls():
@@ -78,7 +102,6 @@ def CheckCasesByDate():
         print('Todos los casos están actualizados con respecto a hoy...')
 
 
-
 def DeleteCasesOutsideDateRange(limitDate):
     newLimit = limitDate
 
@@ -120,13 +143,17 @@ def PrintCases():
 
 
 def PrintSummary():
+
     lastCaseIndex = len(Cases) - 1
     AvPerc = GetAveragePercentage()
     tomorrow = datetime.date.today() + datetime.timedelta(days=1)
     NextPossibleCases = float(
         Cases[lastCaseIndex].get('confirmed')) * ((AvPerc/100)+1)
-    print(f"\nProbables casos de mañana {tomorrow}: {NextPossibleCases:.1f}")
-    print(f'Promedio de Contagio por día: +{AvPerc:.1f}%\n\n')
+    return {
+        "TomorrowDate": str(tomorrow),
+        "TomorrowCases": NextPossibleCases,
+        "AverageDayPercentage": AvPerc
+    }
 
 
 # MENU
@@ -136,35 +163,50 @@ def Reset():
         MainMenu()
 
 
-def MainMenu():
-    cls()
-    searchFor = input(
-        '\n* Importante: (El nombre del país debe estar en inglés y la primera letra debe ser Mayus.)\n\nEscriba el nombre del país: ')
-    data = GetCasesFromCountry(searchFor)
-    if data.get('Status'):
-        print('\n{}'.format(data.get('Message')))
+def MainAPI():
 
-        searchForDate = input(
-            '\nDesea sacar el cálculo a partir de una fecha específica? (y/n): ')
+    response = Res()
 
-        if searchForDate == "Y" or searchForDate == "y":
-            limitDate = input(
-                '\nIngrese la fecha en formato (YYYY-MM-DD) o también hace cuantos días (hace X días)): ')
-            DeleteCasesOutsideDateRange(limitDate)
+    # Gets json
+    Data = request.json
 
-        CheckCasesByDate()
-        GetConfirmedPercentage()
-        # PrintCases()
-        # PrintDayCasesPercentage()
-        PrintSummary()
+    print(Data)
 
+    # Validates if required fields are filled
+    if (Data != None and Data.get('Country') != None):
+
+        data = GetCasesFromCountry(Data.get('Country'))
+
+        if data.get('Status'):
+            if Data.get('SpecificDate') and Data.get('Date'):
+                DeleteCasesOutsideDateRange(Data.get('Date'))
+
+            CheckCasesByDate()
+            GetConfirmedPercentage()
+            response.SET_Data(PrintSummary())
+        else:
+            response.SET_Data({})
+
+        response.SET_Info({
+            "Message": data.get('Message')
+        })
     else:
-        print(data.get('Message'))
-        MainMenu()
+        response.SET_Data({})
+        response.SET_Info({
+            "Message": "Country property is REQUIRED!"
+        })
 
-    Reset()
+    return response.ToJSON(), 200
+
+
+@app.route("/GetCases", methods=["POST"])
+def GetCases():
+    try:
+        return MainAPI()
+    except NameError:
+        return print('ERROR OCCURRED: ' + NameError)
 
 
 # MAIN
-if __name__ == "__main__":
-    MainMenu()
+if __name__ == '__main__':
+    app.run(debug=True, host=S.getsockname()[0], port=4000)
