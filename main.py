@@ -149,12 +149,13 @@ def MainMenu():
 
         if searchForDate == "Y" or searchForDate == "y":
             limitDate = input(
-                '\nIngrese la fecha en formato (YYYY-MM-DD) o también hace cuantos días (hace 17 días)): ')
+                '\nIngrese la fecha en formato (YYYY-MM-DD) o también hace cuantos días (hace X días)): ')
             DeleteCasesOutsideDateRange(limitDate)
 
         CheckCasesByDate()
         GetConfirmedPercentage()
-        PrintDayCasesPercentage()
+        # PrintCases()
+        # PrintDayCasesPercentage()
         PrintSummary()
 
     else:
