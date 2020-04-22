@@ -156,13 +156,6 @@ def PrintSummary():
     }
 
 
-# MENU
-def Reset():
-    option = input('Desea volver al menú principal? (y/n)')
-    if option == "y" or option == "Y":
-        MainMenu()
-
-
 def MainAPI():
 
     response = Res()
@@ -210,3 +203,4 @@ def GetCases():
 # MAIN
 if __name__ == '__main__':
     app.run(debug=True, host=S.getsockname()[0], port=4000)
+410000
